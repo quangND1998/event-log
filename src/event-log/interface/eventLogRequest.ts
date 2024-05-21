@@ -5,4 +5,12 @@ export class eventLogRequest {
   shop: string;
   @IsNotEmpty()
   group: string;
+
+  startDate?: Date
+  endDate?: Date;
+  level?: string;
+  search?: string;
+  names?: string[];
+  utm_source? :string;
+  filtering?:string;
 }
