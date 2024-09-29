@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsNotEmpty, isNotEmpty } from 'class-validator';
 
 export class eventLogRequest {
   @IsNotEmpty()
@@ -12,5 +12,10 @@ export class eventLogRequest {
   search?: string;
   names?: string[];
   utm_source? :string;
-  filtering?:string;
+  filtering?:Filter[];
 }
+
+class Filter{
+  field: string;
+  value: [number, number];
+};

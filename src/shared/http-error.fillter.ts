@@ -16,6 +16,7 @@ export class HttpErrorFillter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       message = exception.message;
+
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'Internal server error';
@@ -27,7 +28,8 @@ export class HttpErrorFillter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      message: message,
+      message: exception.getResponse().message,
+
     };
 
     if (status === HttpStatus.INTERNAL_SERVER_ERROR) {

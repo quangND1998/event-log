@@ -1,31 +1,37 @@
-import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException, HttpException, HttpStatus, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { validate } from 'class-validator';
-import { plainToClass } from 'class-transformer';
+import { plainToClass,plainToInstance } from 'class-transformer';
+
 
 @Injectable()
 export class ValidationPipe implements PipeTransform<any> {
-    
+
     async transform(value: any, metadata: ArgumentMetadata) {
-        if (value instanceof Object && this.isEmpty(value)) {
-            throw new HttpException('Validation failed : No body submitted', HttpStatus.BAD_REQUEST)
-        }
+        // if (value instanceof Object && this.isEmpty(value)) {
+        //     throw new HttpException('Validation failed : No body submitted', HttpStatus.BAD_REQUEST)
+        // }
 
         const { metatype } = metadata;
-    if (!metatype || !this.toValidate(metatype)) {
-      return value;
+        if (!metatype || !this.toValidate(metatype)) {
+            return value;
         }
-        
-    const object = plainToClass(metatype, value);
-    const errors = await validate(object);
-    if (errors.length > 0) {
-      throw new HttpException(`Validation failed: ${this.formatErrors(errors)}`,HttpStatus.BAD_REQUEST)
-    }
-    return value;
-  }
 
-  private toValidate(metatype: Function): boolean {
-    const types: Function[] = [String, Boolean, Number, Array, Object];
-    return !types.includes(metatype);
+        const object = plainToInstance(metatype, value);
+        const errors = await validate(object);
+
+        if (errors.length > 0) {
+            const formattedErrors = errors.map(err => ({
+                field: err.property,
+                errors: Object.values(err.constraints),
+            }));
+            throw new UnprocessableEntityException(formattedErrors);
+        }
+        return value;
+    }
+
+    private toValidate(metatype: Function): boolean {
+        const types: Function[] = [String, Boolean, Number, Array, Object];
+        return !types.includes(metatype);
     }
 
 
@@ -33,7 +39,7 @@ export class ValidationPipe implements PipeTransform<any> {
         return errors.map(err => {
             for (let property in err.constraints) {
                 return err.constraints[property]
-                
+
             }
         }).join(', ')
     }

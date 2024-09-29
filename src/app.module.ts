@@ -8,7 +8,6 @@ import { HttpErrorFillter } from './shared/http-error.fillter';
 import { LoggingInterceptor } from './shared/logging.interceptor';
 import { CacheModule } from '@nestjs/cache-manager';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HelperService } from './helpers/helpers.service';
 import { HelpersModule } from './helpers/helpers.module';
 @Module({
   imports: [
@@ -28,7 +27,12 @@ import { HelpersModule } from './helpers/helpers.module';
     ),
     EventLogModule,
     HelpersModule,
-  
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 60, // seconds
+      max: 10, // maximum number of items in cache
+    })
+
 
   ],
   controllers: [AppController],
@@ -43,5 +47,6 @@ import { HelpersModule } from './helpers/helpers.module';
 
     },
   ],
+  
 })
 export class AppModule { }
