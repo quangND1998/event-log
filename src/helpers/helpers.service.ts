@@ -3,7 +3,7 @@ import moment from 'moment';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PixelSettingEntity } from 'src/pixels/pixel-setting.entity';
 import { Repository } from 'typeorm';
-import { getDayRange } from './../helper';
+import { getDayRange } from '../helper';
 import CACHE_MANAGER from '@nestjs/cache-manager'
 import { Cache } from 'cache-manager';
 const ASCII_DECODE_JSON = {
@@ -233,16 +233,14 @@ const ASCII_DECODE_JSON = {
     "%C3%BF": "ÿ",
 };
 @Injectable()
-export class HelperService {
+export class HelpersService {
     constructor(
-
+        @Inject(CACHE_MANAGER) private cacheService: Cache,
         @InjectRepository(PixelSettingEntity)
         private readonly pixelSetingRepository: Repository<PixelSettingEntity>,
-        @Inject(CACHE_MANAGER) private cacheManager: Cache
-   
-      ) {
-    }
 
+    ) {
+    }
     async getFilterDate(shop: string, startDate: Date, endDate: Date): Promise<any> {
         let timezone = 0;
         // if (!startDate || !endDate) {

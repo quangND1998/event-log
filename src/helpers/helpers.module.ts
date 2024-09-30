@@ -1,16 +1,13 @@
-import { Module } from '@nestjs/common';
-import { HelperService } from './helpers.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { PixelSettingEntity } from 'src/pixels/pixel-setting.entity';
 import { CacheModule } from '@nestjs/cache-manager';
-
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { HelpersService } from 'src/helpers/helpers.service';
+import { PixelSettingEntity } from 'src/pixels/pixel-setting.entity';
 
 @Module({
-    imports: [CacheModule.register({
-        ttl: 60, // seconds
-        max: 10, // maximum number of items in cache
-    }), TypeOrmModule.forFeature([PixelSettingEntity])],
-    providers: [HelperService],
-    exports: [HelperService]
+    imports: [TypeOrmModule.forFeature([PixelSettingEntity])],
+    providers: [HelpersService],
+    exports: [HelpersService]
 })
-export class HelpersModule { }
+
+export class HelpersModule {}
