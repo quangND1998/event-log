@@ -24,8 +24,8 @@ import { HelpersModule } from './helpers/helpers.module';
         "password": "",
         "database": "facebook-multi-pixels2",
         "entities": ["dist/**/*.entity{.ts,.js}", "./src/**/*.enity.ts"],
-        "synchronize": true,
-        "logging": true
+        "synchronize": false,
+        "logging": true,
       }
     ),
     EventLogModule,

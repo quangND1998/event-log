@@ -9,10 +9,10 @@ export class EventLog extends Document {
     shop:  String
 
     @Prop({ required: true })
-    name: number;
+    name: string;
 
     @Prop({ required: true })
-    status: string;
+    status: String;
 
 
     @Prop({ default: Date.now })
@@ -20,6 +20,9 @@ export class EventLog extends Document {
 
     @Prop({ default: Date.now })
     created_at: Date
+
+    @Prop({ type: MongooseSchema.Types.Array })
+    plan: []
 
     @Prop({ type: MongooseSchema.Types.Mixed })
     log: any;
@@ -29,14 +32,17 @@ export class EventLog extends Document {
     order_id: Number
 
     @Prop()
-    order_number: string
+    order_number: String
 
     @Prop()
     order_value: Number
 
+    @Prop()
+    suborder_value: Number
+    
 
     @Prop({ required: true })
-    pixel: string 
+    pixel: String 
 
     @Prop()
     pixel_title:String 
@@ -59,9 +65,28 @@ export class EventLog extends Document {
     @Prop()
     ad_id: String
 
-    // @Prop({default:[]})
-    // products:  
+    @Prop({type: Array})
+    products:  []
     
+    @Prop()
+    pending_log: String
+    
+
+    @Prop({ type: MongooseSchema.Types.Array })
+    pixels: String[]
+
+    @Prop({type: Array})
+    campaigns_history:  []
+
+    @Prop({ default: '' })
+    external_id: String 
+
+    @Prop({ default: '' })
+    event_source_url: String
+
+    @Prop({ default: '' })
+    section_order_id: String
+
     @Prop()
     utm_source: String
 }

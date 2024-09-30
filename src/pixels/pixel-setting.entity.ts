@@ -3,8 +3,7 @@ import { Entity, PrimaryGeneratedColumn, PrimaryColumn, Column, OneToOne, ManyTo
 export class PixelSettingEntity {
     @PrimaryGeneratedColumn('increment') id: number;
 
-
-    @Column({ type: 'varchar', collation: "latin1_swedish_ci" })
+    @Column({ type: "varchar", length: 250, nullable: false, default: false, collation: "latin1_swedish_ci", })
     shop: string;
 
     @Column('int', { default: false })
@@ -129,7 +128,7 @@ export class PixelSettingEntity {
     @Column({ type: 'int', default: 1 })
     statusFeedback: number
 
-    @Column({ type: 'datetime' })
+    @Column({ type: 'datetime' , nullable: false, default: null })
     lastUpdate: Date
 
     @Column({ type: 'varchar', collation: 'latin1_swedish_ci', nullable: true })
@@ -208,12 +207,12 @@ export class PixelSettingEntity {
     @Column({ type: 'int', default: 0 })
     is_save_consent: number
 
-    @Column({ type: 'longtext',collation:"latin1_swedish_ci"})
+    @Column({ type: 'longtext',collation:"latin1_swedish_ci" , nullable: true })
     setup_ads_report: string
 
     @Column({ type: 'tinyint', nullable:true, default:0})
     is_using_plan_promote: string
 
-    @Column({type:'timestamp', nullable:true})
+    @Column({type:'datetime', nullable:true, default:null} )
     first_pixel_at: Date
 }
