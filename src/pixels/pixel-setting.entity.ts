@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, PrimaryColumn, Column, OneToOne, ManyToOne, OneToMany, JoinColumn, AfterUpdate, ManyToMany, JoinTable, BeforeUpdate } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn,  Column,  } from 'typeorm';
 @Entity('fb_pixel_settings')
 export class PixelSettingEntity {
     @PrimaryGeneratedColumn('increment') id: number;

@@ -1,10 +1,10 @@
 import { Injectable, Inject, Get } from '@nestjs/common';
 import moment from 'moment';
 import { InjectRepository } from '@nestjs/typeorm';
-import { PixelSettingEntity } from 'src/pixels/pixel-setting.entity';
 import { Repository } from 'typeorm';
 import { getDayRange } from './../helper';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { PixelSettingEntity } from '../pixels/pixel-setting.entity';
 
 const PATH = {
     TZ: 'tz'

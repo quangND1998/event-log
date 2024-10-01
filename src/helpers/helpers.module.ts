@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { HelpersService } from './helpers.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PixelSettingEntity } from 'src/pixels/pixel-setting.entity';
 import { CacheModule } from '@nestjs/cache-manager';
+import { PixelSettingEntity } from '../pixels/pixel-setting.entity';
 
 
 @Module({
