@@ -9,6 +9,7 @@ import { HelpersService } from 'src/helpers/helpers.service';
 import moment from 'moment';
 import { forEach, groupBy, find, uniq } from 'lodash';
 import { EventLogStoreRequest } from './interface/eventLogStoreRequest';
+import { ProductJourneyDto } from './interface/product-journey-dto';
 
 const TOTAL_EVENT_KEYS = {
     "PageView": "total_page_view",
@@ -332,5 +333,27 @@ export class EventLogService {
             );
         }
        
+    }
+
+    async productJourney(req: ProductJourneyDto): Promise<any> {
+
+        try {
+            let shop = req.shop;
+            let filterDate = await this.helpersService.getFilterDate(shop, req.order_created, req.order_created);
+            let externalId = req.external_id;
+            let pixel = req.pixel;
+            let results = [];
+            const filterWeek = moment(filterDate.$lt).week();
+        } catch (error) {
+        
+            throw new HttpException(
+                {
+                    message: 'Something went wrong while saving the event log.',
+                    error: error.message, // Optionally include the error message
+                    stack: error.stack, // Include stack trace for debugging
+                },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
     }
 }
