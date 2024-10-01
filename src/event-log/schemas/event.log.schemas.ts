@@ -73,7 +73,7 @@ export class EventLog extends Document {
     
 
     @Prop({ type: MongooseSchema.Types.Array })
-    pixels: String[]
+    pixels: [String]
 
     @Prop({type: Array})
     campaigns_history:  []

@@ -8,10 +8,12 @@ export class ProductJourneyDto {
     external_id: string
 
     @IsNotEmpty()
-    order_created: Date
+    orderCreated: Date
 
     @IsNotEmpty()
     pixel: boolean
+
+    section_order_id?: string
 
 
 }   

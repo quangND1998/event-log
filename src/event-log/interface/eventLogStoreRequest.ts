@@ -25,6 +25,7 @@ export class EventLogStoreRequest {
 
     @IsNotEmpty({message: 'pixel_title is required'})
     pixel_title: string
+    
 
 
     // utm_campaign?: string

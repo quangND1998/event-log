@@ -317,11 +317,11 @@ export class EventLogService {
                 throw new HttpException({ message: 'Something went wrong', error }, HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
-        try{
+        try {
             const newEventLog = new EventLogDay(req);
             eventLog = await newEventLog.save();
             return eventLog;
-        }catch(error){
+        } catch (error) {
             Logger.error('Error saving new event log:', error); // Log the complete error
             throw new HttpException(
                 {
@@ -332,20 +332,48 @@ export class EventLogService {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
-       
+
     }
 
-    async productJourney(req: ProductJourneyDto): Promise<any> {
+    async productJourney(req: ProductJourneyDto): Promise<EventLog[]> {
 
         try {
             let shop = req.shop;
-            let filterDate = await this.helpersService.getFilterDate(shop, req.order_created, req.order_created);
+            let filterDate = await this.helpersService.getFilterDate(shop, req.orderCreated, req.orderCreated);
             let externalId = req.external_id;
             let pixel = req.pixel;
             let results = [];
             const filterWeek = moment(filterDate.$lt).week();
+
+            for (let week = filterWeek - 2; week <= filterWeek; week++) {
+
+                let EventLogDay = this.connection.collection(`${this.EventLogModel.collection.name}_${req.shop}_${week}`)
+                let aggregate = await EventLogDay.aggregate([
+                    {
+                        $match: {
+                            status: { $eq: 'success' },
+                            external_id: { $eq: externalId },
+                            $or: [
+                                { pixels: { $exists: false }, pixel: { $eq: pixel } },
+                                { pixels: { $size: 0 }, pixel: { $eq: pixel } }, // Case where pixels array is empty
+                                { pixels: { $in: [pixel] } }                 // Case where the pixel is in the pixels array
+                            ]
+                        }
+                    }
+                ]).toArray();
+
+                if (aggregate.length > 0) {
+                    results = results.concat(aggregate);
+                }
+            }
+            if (results.length > 0) {
+                results = this.filterArrayByICondition(results, req.section_order_id);
+            }
+            return results;
+
+
         } catch (error) {
-        
+
             throw new HttpException(
                 {
                     message: 'Something went wrong while saving the event log.',
@@ -355,5 +383,147 @@ export class EventLogService {
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
+    }
+
+    filterArrayByICondition = (arr: EventLog[], iValue: String) => {
+        let result = [];
+        for (let item of arr) {
+            result.push(item);
+            if (item.section_order_id == iValue) {
+                let nextItemIndex = arr.indexOf(item) + 1;
+                while (nextItemIndex < arr.length && arr[nextItemIndex].section_order_id == iValue) {
+                    result.push(arr[nextItemIndex]);
+                    nextItemIndex++;
+                }
+                break;
+            }
+        }
+        return result;
+    }
+
+
+
+
+
+    async overview(req): Promise<any> {
+
+        let shop = req.shop;
+        let filterDate = await this.helpersService.getFilterDate(shop, req.startDate, req.endDate);
+        let startDate = filterDate.$gte;
+        let endDate = filterDate.$lt;
+        let pixel = req.pixel;
+        let match: any = {
+            shop: { $eq: shop },
+            status: { $eq: 'success' },
+            event_time: { $gte: startDate, $lt: endDate },
+        }
+
+        if (pixel) {
+            match.$or = [
+                { pixels: { $exists: false }, pixel: { $eq: pixel } }, // Case where no 'pixels' field exists
+                { pixels: { $size: 0 }, pixel: { $eq: pixel } }, // Case where 'pixels' field is empty
+                {
+                    $and: [ // Combine both conditions within $and
+                        { pixels: { $ne: [] } },
+                        { pixels: { $in: [pixel] } },
+                    ]
+                }
+            ];
+        }
+
+        let promises = [];
+        let days = this.helpersService.getDayRange(startDate, endDate)
+
+        days.forEach( async day => {
+            const EventLogDay = this.connection.model('EventLogDay', EventLogSchema, `${this.EventLogModel.collection.name}_${day}`);
+            let aggregate =await EventLogDay.aggregate([
+                {
+                    $match: match
+                },
+                {
+                    $group: {
+                        _id: {
+                            "name": "$name",
+                        },
+                        count: { $sum: 1 },
+                        revenue: {
+                            $sum: "$order_value"
+                        }
+                    }
+                },
+            ])
+            promises.push(aggregate)
+        });
+
+        for (let week = moment(startDate).week(); week <= moment(endDate).week(); week++) {
+
+            const EventLogWeek = this.connection.model('EventLogDay', EventLogSchema, `${this.EventLogModel.collection.name}_${shop}_${week}`);
+            let aggregate = await EventLogWeek.aggregate([
+                {
+                    $match: match
+                },
+                {
+                    $group: {
+                        _id: {
+                            "name": "$name",
+                        },
+                        count: { $sum: 1 },
+                        revenue: {
+                            $sum: "$order_value"
+                        }
+                    }
+                },
+            ])
+            promises.push(aggregate)
+        }
+
+
+        const EventLogShop = this.connection.model('EventLogDay', EventLogSchema, `${this.EventLogModel.collection.name}_${shop}`);
+        let aggregate = await EventLogShop.aggregate([
+            {
+                $match: match
+            },
+            {
+                $group: {
+                    _id: {
+                        "name": "$name",
+                    },
+                    count: { $sum: "$value" },
+                    revenue: {
+                        $sum: "$order_value"
+                    }
+                }
+            },
+        ])
+        promises.push(aggregate)
+
+        let result = {
+            "total_page_view": 0,
+            "total_view_content": 0,
+            "total_add_to_cart": 0,
+            "total_initiate_checkout": 0,
+            "total_purchase": 0,
+            "vc_percentage_on_atc": 0,
+            "atc_percentage_on_ic": 0,
+            "ic_percentage_on_pur": 0,
+            "revenue": 0
+        }
+
+        forEach(promises, response => {
+            console.log(response);
+            forEach(response, item => {
+                let key = TOTAL_EVENT_KEYS[item['_id']['name']]
+                result[key] = result[key] + item['count']
+                result['revenue'] = result['revenue'] + item['revenue']
+            })
+        })
+        result['revenue'] = Math.round(result['revenue'] * 100) / 100;
+        result['vc_percentage_on_atc'] = this.helpersService.calculatePercentage(result['total_add_to_cart'], result['total_view_content']);
+        result['atc_percentage_on_ic'] = this.helpersService.calculatePercentage(result['total_initiate_checkout'], result['total_add_to_cart']);
+        result['ic_percentage_on_pur'] = this.helpersService.calculatePercentage(result['total_purchase'], result['total_initiate_checkout']);
+        delete result['_id']
+
+        return result;
+
     }
 }

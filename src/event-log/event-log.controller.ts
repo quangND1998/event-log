@@ -10,6 +10,8 @@ import {
   ApiOperation, ApiTags,
 } from '@nestjs/swagger';
 import { EventLogStoreRequest } from './interface/eventLogStoreRequest';
+import { ProductJourneyDto } from './interface/product-journey-dto';
+import { OverViewDto } from './interface/over-view-dto';
 
 @ApiTags('event-logs')
 @Controller('api/event-logs')
@@ -36,6 +38,33 @@ export class EventLogController {
     async save(@Body() EventLogStoreRequest: EventLogStoreRequest): Promise<any> {
         Logger.log('EventLogStoreRequest', EventLogStoreRequest);
         return await this.eventLogService.store(EventLogStoreRequest);
+    }
+
+    @Get('product-journey')
+    @ApiOperation({ summary: 'Get product-journey' })
+    @ApiResponse({ status: 200, description: 'Return product-journey.' })
+    @UsePipes(ValidationPipe)
+    async productJourney(@Query() req:ProductJourneyDto): Promise<{code: number; status: string; data: EventLog[] }> {
+      let eventLogs =await this.eventLogService.productJourney(req);
+      return {
+        code: 200,
+        status: 'success',
+        data: eventLogs,
+      };
+    }
+    
+
+    @Get('overview')
+    @ApiOperation({ summary: 'Get overview' })
+    @ApiResponse({ status: 200, description: 'Return overview.' })
+    @UsePipes(ValidationPipe)
+    async overview(@Query() req: OverViewDto): Promise<{ code: number; status: string; data: EventLog[] }> {
+      let overview = await this.eventLogService.overview(req);
+      return {
+        code: 200,
+        status: 'success',
+        data: overview,
+      };
     }
 
 }

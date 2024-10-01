@@ -90,4 +90,9 @@ export class HelpersService {
             }
         }
     }
+
+    calculatePercentage = (numerator, denominator) => {
+        return Math.round((parseInt(denominator) == 0 ? 0 : (parseInt(numerator) / parseInt(denominator)) * 100) * 100) / 100
+      }
+      
 }
