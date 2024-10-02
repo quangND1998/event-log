@@ -12,6 +12,7 @@ import {
 import { EventLogStoreRequest } from './interface/eventLogStoreRequest';
 import { ProductJourneyDto } from './interface/product-journey-dto';
 import { OverViewDto } from './interface/over-view-dto';
+import { groupBy } from 'lodash';
 
 @ApiTags('event-logs')
 @Controller('api/event-logs')
@@ -58,12 +59,25 @@ export class EventLogController {
     @ApiOperation({ summary: 'Get overview' })
     @ApiResponse({ status: 200, description: 'Return overview.' })
     @UsePipes(ValidationPipe)
-    async overview(@Query() req: OverViewDto): Promise<{ code: number; status: string; data: EventLog[] }> {
+    async overview(@Query() req: OverViewDto): Promise<{ code: number; status: string; data: any }> {
       let overview = await this.eventLogService.overview(req);
       return {
         code: 200,
         status: 'success',
         data: overview,
+      };
+    }
+
+    @Get('group-by-pixels')
+    @ApiOperation({ summary: 'Get overview' })
+    @ApiResponse({ status: 200, description: 'Return overview.' })
+    @UsePipes(ValidationPipe)
+    async groupByPixels(@Query() req: OverViewDto): Promise<{ code: number; status: string; data: any }> {
+      let data = await this.eventLogService.groupByPixels(req);
+      return {
+        code: 200,
+        status: 'success',
+        data: data,
       };
     }
 

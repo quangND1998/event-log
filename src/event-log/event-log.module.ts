@@ -5,10 +5,14 @@ import { EventLogService } from './event-log.service';
 import { EventLog, EventLogSchema } from './schemas/event.log.schemas';
 import { HelpersModule } from 'src/helpers/helpers.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PixelSettingEntity } from '../pixels/pixel-setting.entity';
+import { PixelEntity } from '../pixels/pixel.entity';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: EventLog.name, schema: EventLogSchema }]),TypeOrmModule.forFeature([PixelSettingEntity]),HelpersModule],
+  imports: [
+    TypeOrmModule.forFeature([PixelEntity]),
+    MongooseModule.forFeature([{ name: EventLog.name, schema: EventLogSchema }]),
+    HelpersModule
+  ],
   controllers: [EventLogController],
   providers: [EventLogService]
 })

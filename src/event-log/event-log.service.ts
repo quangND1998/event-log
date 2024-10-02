@@ -10,7 +10,10 @@ import moment from 'moment';
 import { forEach, groupBy, find, uniq } from 'lodash';
 import { EventLogStoreRequest } from './interface/eventLogStoreRequest';
 import { ProductJourneyDto } from './interface/product-journey-dto';
-
+import { PixelSettingEntity } from 'src/pixels/pixel-setting.entity';
+import { PixelEntity } from 'src/pixels/pixel.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 const TOTAL_EVENT_KEYS = {
     "PageView": "total_page_view",
     "ViewContent": "total_view_content",
@@ -24,6 +27,7 @@ export class EventLogService {
     constructor(
         @InjectModel(EventLog.name) private readonly EventLogModel: Model<EventLog>,
         @InjectConnection() private readonly connection: Connection,
+        @InjectRepository(PixelEntity) private readonly pixelRepository: Repository<PixelEntity>,
         private readonly helpersService: HelpersService
     ) { }
 
@@ -434,9 +438,9 @@ export class EventLogService {
         let promises = [];
         let days = this.helpersService.getDayRange(startDate, endDate)
 
-        days.forEach( async day => {
+        days.forEach(async day => {
             const EventLogDay = this.connection.model('EventLogDay', EventLogSchema, `${this.EventLogModel.collection.name}_${day}`);
-            let aggregate =await EventLogDay.aggregate([
+            let aggregate = await EventLogDay.aggregate([
                 {
                     $match: match
                 },
@@ -526,4 +530,370 @@ export class EventLogService {
         return result;
 
     }
+
+
+
+    async groupByPixels(req): Promise<any> {
+        try {
+            let shop = req.shop;
+            let filterDate = await this.helpersService.getFilterDate(shop, req.startDate, req.endDate);
+            let startDate = filterDate.$gte;
+            let endDate = filterDate.$lt;
+            let pixel = req.pixel;
+
+            let days = this.helpersService.getDayRange(startDate, endDate);
+            let promises = [];
+
+            let match: any = {
+                shop: { $eq: shop },
+                status: { $eq: 'success' },
+                event_time: { $gte: startDate, $lt: endDate },
+            }
+            if (pixel) {
+                match.$or = [
+                    { pixels: { $exists: false }, pixel: { $eq: pixel } }, // Case where no 'pixels' field exists
+                    { pixels: { $size: 0 }, pixel: { $eq: pixel } }, // Case where 'pixels' field is empty
+                    {
+                        $and: [ // Combine both conditions within $and
+                            { pixels: { $ne: [] } },
+                            { pixels: { $in: [pixel] } },
+                        ]
+                    }
+                ];
+            }
+            days.forEach(async day => {
+
+                let EventLogDay = this.connection.model('EventLogDay', EventLogSchema, `${this.EventLogModel.collection.name}_${day}`);
+                let aggregate = await EventLogDay.aggregate([
+                    {
+                        $match: match
+                    },
+
+                    {
+                        $unwind: { path: "$pixels", preserveNullAndEmptyArrays: true } // Unwind pixels array
+                    },
+
+                    {
+                        $group: {
+                            _id: { pixel: { $ifNull: ["$pixels", "$pixel"] }, name: "$name" }, // Group by pixel or pixel field
+                            count: { $sum: 1 },
+                            revenue: { $sum: "$order_value" }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: { pixel: "$_id.pixel" },
+                            events: { $push: { name: "$_id.name", count: "$count", revenue: "$revenue" } },
+                        }
+                    }
+                ]).exec()
+                promises.push(aggregate)
+            });
+
+            for (let week = moment(startDate).week(); week <= moment(endDate).week(); week++) {
+                const EventLogWeek = this.connection.model('EventLogWeek', EventLogSchema, `${this.EventLogModel.collection.name}_${shop}_${week}`);
+                let aggregate = await EventLogWeek.aggregate([
+                    {
+                        $match: match
+                    },
+                    {
+                        $unwind: { path: "$pixels", preserveNullAndEmptyArrays: true } // Unwind pixels array
+                    },
+
+                    {
+                        $group: {
+                            _id: { pixel: { $ifNull: ["$pixels", "$pixel"] }, name: "$name" }, // Group by pixel or pixel field
+                            count: { $sum: 1 },
+                            revenue: { $sum: "$order_value" }
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: { pixel: "$_id.pixel" },
+                            events: { $push: { name: "$_id.name", count: "$count", revenue: "$revenue" } },
+                        }
+                    }
+                ]).exec()
+                promises.push(aggregate)
+            }
+            let EventLogShop = this.connection.model('EventLogShop', EventLogSchema, `${this.EventLogModel.collection.name}_${shop}`);
+            let aggregate = await EventLogShop.aggregate([
+                {
+                    $match: match
+                },
+
+                {
+                    $unwind: { path: "$pixels", preserveNullAndEmptyArrays: true } // Unwind pixels array
+                },
+
+                {
+                    $group: {
+                        _id: { pixel: { $ifNull: ["$pixels", "$pixel"] }, name: "$name" }, // Group by pixel or pixel field
+                        count: { $sum: 1 },
+                        revenue: { $sum: "$order_value" }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { pixel: "$_id.pixel" },
+                        events: { $push: { name: "$_id.name", count: "$count", revenue: "$revenue" } },
+                    }
+                }
+            ]).exec()
+            promises.push(aggregate)
+
+
+            let result = [];
+   
+            let pixels = await this.getPixels(req.shop, req.pixel);
+
+            console.log('findPixel: ', pixels)
+            forEach(promises, response => {
+                forEach(response, item => {
+                    console.log('events: ', item)
+                    let obj = {
+                        pixel: item['_id']['pixel'],
+                        total_page_view: 0,
+                        total_view_content: 0,
+                        total_add_to_cart: 0,
+                        total_initiate_checkout: 0,
+                        total_purchase: 0,
+                        revenue: 0
+                    }
+
+                    item['events'].forEach(event => {
+                        let key = TOTAL_EVENT_KEYS[event['name']]
+                        obj[key] = obj[key] + event['count']
+                        obj['revenue'] = obj['revenue'] + event['revenue']
+                    });
+                    result.push(obj)
+                })
+            })
+
+            let resultGroup = groupBy(result, 'pixel')
+     
+            let results = []
+           
+            forEach(resultGroup, (data, key) => {
+           
+              let findPixel = pixels.find((item) => {
+                return item.pixel_id == key;
+              })
+              
+              let obj = {
+                pixel: key,
+                pixel_title: findPixel ? findPixel['title'] : '',
+                total_page_view: 0,
+                total_view_content: 0,
+                total_add_to_cart: 0,
+                total_initiate_checkout: 0,
+                total_purchase: 0,
+                revenue: 0
+              }
+              forEach(data, item => {
+                obj.total_page_view = obj.total_page_view + item.total_page_view
+                obj.total_view_content = obj.total_view_content + item.total_view_content
+                obj.total_add_to_cart = obj.total_add_to_cart + item.total_add_to_cart
+                obj.total_initiate_checkout = obj.total_initiate_checkout + item.total_initiate_checkout
+                obj.total_purchase = obj.total_purchase + item.total_purchase
+                obj.revenue = obj.revenue + item.revenue
+              })
+              results.push(obj)
+            })
+            return results;
+        } catch (error) {
+            Logger.error('Error', error); // Log the complete error
+            throw new HttpException(
+                {
+                    message: 'Something went ',
+                    error: error.message, // Optionally include the error message
+                    stack: error.stack, // Include stack trace for debugging
+                    line : error.line
+                },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+
+
+      
+       
+
+    }
+    async getPixels(shop: string, pixel?: string) {
+        const query = this.pixelRepository.createQueryBuilder()
+          .select(['pixel_id', 'title'])
+          .where('shop = :shop', { shop });
+      
+        if (pixel) {
+          query.andWhere('pixel_id = :pixel', { pixel });
+        }
+      
+        return await query.getRawMany(); 
+      }
+
+
+    async groupByHours(req) :Promise<any> {
+       
+        let shop = req.shop;
+        let filterDate = await this.helpersService.getFilterDate(shop, req.query.startDate, req.query.endDate);
+        let startDate = filterDate.$gte;
+        let endDate = filterDate.$lt;
+        let eventSelected = req.query.event_selected && req.query.event_selected.length ? req.query.event_selected : ['PageView', 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase']
+        let pixel = req.query.pixel;
+        let match:any = {
+          shop: { $eq: shop },
+          status: { $eq: 'success' },
+          event_time: { $gte: startDate, $lt: endDate },
+          name: { $in: eventSelected },
+        }
+        if (pixel) {
+          match.pixel = { $eq: pixel }
+        }
+
+        let promises = [];
+        let days = this.helpersService.getDayRange(startDate, endDate)
+
+        // days.forEach(day => {
+        //   let EventLogDay = mongoose.model('EventLogDay', eventLogSchema, 'fb_pixel_event_logs_' + day);
+        //   let aggregate = EventLogDay.aggregate([
+        //     {
+        //       $match: match
+        //     },
+        //     {
+        //       $project: {
+        //         item: 1,
+        //         name: 1,
+        //         time: { $hour: "$event_time" }
+        //       }
+        //     },
+        //     {
+        //       $group: {
+        //         _id: {
+        //           time: "$time",
+        //           name: "$name"
+        //         },
+        //         total: { $sum: 1 },
+        //       }
+        //     }
+        //   ]).exec()
+        //   promises.push(aggregate)
+        // });
+
+        // for (let week = moment(startDate).week(); week <= moment(endDate).week(); week++) {
+        //   let EventLogDay = mongoose.model('EventLogDay', eventLogSchema, 'fb_pixel_event_logs_' + shop + '_' + week);
+        //   let aggregate = EventLogDay.aggregate([
+        //     {
+        //       $match: match
+        //     },
+        //     {
+        //       $project: {
+        //         item: 1,
+        //         name: 1,
+        //         time: { $hour: "$event_time" }
+        //       }
+        //     },
+        //     {
+        //       $group: {
+        //         _id: {
+        //           time: "$time",
+        //           name: "$name"
+        //         },
+        //         total: { $sum: 1 },
+        //       }
+        //     }
+        //   ]).exec()
+        //   promises.push(aggregate)
+        // }
+
+        // let EventLogShop = mongoose.model('EventLogShop', eventLogNewSchema, 'fb_pixel_event_logs_' + shop);
+        // let aggregate = EventLogShop.aggregate([
+        //   {
+        //     $match: match
+        //   },
+        //   {
+        //     $project: {
+        //       name: 1,
+        //       value: 1,
+        //       time: { $hour: "$event_time" }
+        //     }
+        //   },
+        //   {
+        //     $group: {
+        //       _id: {
+        //         time: "$time",
+        //         name: "$name"
+        //       },
+        //       total: { $sum: "$value" },
+        //     }
+        //   }
+        // ]).exec()
+        // promises.push(aggregate)
+
+        // let result = [];
+        // let results = [];
+
+        // Promise.all(promises).then(responses => {
+        //   forEach(responses, response => {
+        //     response.forEach((item) => {
+        //       item['time'] = item['_id']['time']
+        //       item['name'] = item['_id']['name']
+        //       delete item['_id']
+        //       result.push(item)
+        //     });
+        //   })
+
+        //   let resultGroup = groupBy(result, item => `${item.name}_${item.time}`)
+
+        //   let data = []
+        //   forEach(resultGroup, (dataGroup, key) => {
+        //     let keys = key.split("_")
+        //     let obj = {
+        //       total: 0,
+        //       time: parseInt(keys[1]),
+        //       name: keys[0]
+        //     }
+        //     forEach(dataGroup, item => {
+        //       obj.total = obj.total + item.total
+        //     })
+        //     data.push(obj)
+        //   });
+
+        //   let maxHour = 24;
+        //   for (let hour = 0; hour < maxHour; hour++) {
+        //     for (let index = 0; index < eventSelected.length; index++) {
+        //       let obj = data.find(o => {
+        //         return o.name === eventSelected[index] && o.time === hour
+        //       });
+        //       if (!obj) {
+        //         data.push({
+        //           "total": 0,
+        //           "time": hour,
+        //           "name": eventSelected[index],
+        //         })
+        //       }
+        //     }
+        //   }
+
+        //   data.forEach((item) => {
+        //     item['name'] = NAME_EVENTS[item['name']];
+        //     return item;
+        //   });
+        //   dataGroup = groupBy(orderBy(data, ['name', 'time'], ['asc', 'asc']), 'name')
+        //   let names = Object.values(NAME_EVENTS)
+
+        //   for (let index = 0; index < names.length; index++) {
+        //     if (!dataGroup[names[index]]) continue;
+        //     results = concat(results, dataGroup[names[index]])
+        //   }
+
+        //   return res.status(200).send({
+        //     code: 200,
+        //     status: "success",
+        //     data: results
+        //   });
+        // }).catch(err => {
+        //   return res.status(500).send(err);
+        // });
+      }
+
 }

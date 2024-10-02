@@ -13,6 +13,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HelpersModule } from './helpers/helpers.module';
 import { PixelSettingEntity } from './pixels/pixel-setting.entity';
+import { PixelEntity } from './pixels/pixel.entity';
 
 
 @Module({
@@ -31,7 +32,7 @@ import { PixelSettingEntity } from './pixels/pixel-setting.entity';
         "username": configService.get<string>('DB_USERNAME'),
         "password": configService.get<string>('DB_PASSWORD'),
         "database": configService.get<string>('DB_DATABASE'),
-        "entities": [PixelSettingEntity],
+        "entities":  ["dist/**/*.entity{.ts,.js}"],
         "synchronize": false,
         "logging": true,
       }),
