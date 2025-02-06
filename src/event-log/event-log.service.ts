@@ -343,11 +343,11 @@ export class EventLogService {
 
         try {
             let shop = req.shop;
-            let filterDate = await this.helpersService.getFilterDate(shop, req.orderCreated, req.orderCreated);
-            let externalId = req.external_id;
-            let pixel = req.pixel;
-            let results = [];
-            const filterWeek = moment(filterDate.$lt).week();
+            // let filterDate = await this.helpersService.getFilterDate(shop, req.orderCreated, req.orderCreated);
+            // let externalId = req.external_id;
+            // let pixel = req.pixel;
+            // let results = [];
+            // const filterWeek = moment(filterDate.$lt).week();
 
             for (let week = filterWeek - 2; week <= filterWeek; week++) {
 
